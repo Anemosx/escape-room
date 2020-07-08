@@ -59,6 +59,9 @@ def run_experiment(params, logger, log_dir):
     else:
         params.use_actions = 0
 
+    # calculate epsilon decay according to the training episodes
+    params.epsilon_decay = (params.epsilon_min / params.train_episodes) * 3
+
     # init escape room environment
     env = escape_room.init_escape_room(params)
 

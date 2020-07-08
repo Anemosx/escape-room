@@ -68,6 +68,7 @@ class EscRoomRender:
         Updates render objects according to the escape room environment for agent with index "agent_id".
         :param env: escape room environment
         :param agent_id: agent index
+        :param old_positions: agents prior positions
         """
 
         self.observation_squares_list = []
@@ -113,24 +114,78 @@ class EscRoomRender:
             self.observation_squares_list.extend(re_obj)
 
 
-def render_esc_room(combined_frames: [], render_objects: [], frames_per_state: int):
+def trading_infos(info: [] = None, env=None):
+    """
+    Generates trading text and renders objects of the trading offers
+    :param info: information about trading
+    :param env: escape room environment
+    :return: render_offers: offer render objects, render_texts: text information about trading
+    """
+    render_offers = []
+    render_texts = []
+    if info:
+        offer_pos = np.zeros((env.nb_agents, 2), dtype=int)
+        for i in range(env.nb_agents):
+            info_text = []
+            info_text.append(gizeh.text("agent {} offer: ({}, {})".format(i, info[0][i][0], info[0][i][1]),
+                                        fontfamily="Arial", fontweight="bold", fill=(1, 1, 1), fontsize=15,
+                                        xy=(60, 15), h_align='left'))
+            if info[1][i]:
+                info_text.append(
+                    gizeh.text("agent {} pays agent {}: {:.3f}.".format(i, ((i + 1) % 2), info[2][i]),
+                                            fontfamily="Arial", fontweight="bold", fill=(1, 1, 1), fontsize=15,
+                                            xy=(60, 40), h_align='left'))
+            else:
+                info_text.append(
+                    gizeh.text("no trade",
+                               fontfamily="Arial", fontweight="bold", fill=(1, 1, 1), fontsize=15, xy=(60, 40),
+                               h_align='left'))
+
+            render_texts.append(info_text)
+
+            if env.collision_check(i, info[0][((i + 1) % 2)]):
+                offer_pos[i] = [env.agents_pos[i][0] + info[0][((i + 1) % 2)][0], env.agents_pos[i][1] + info[0][((i + 1) % 2)][1]]
+            else:
+                offer_pos[i] = [env.agents_pos[i][0], env.agents_pos[i][1]]
+
+            render_offers.append(gizeh.square(l=env.render_objects[0].tile_size-5, fill=None, xy=(
+                    offer_pos[i][0] * env.render_objects[0].tile_size + env.render_objects[0].offset,
+                    offer_pos[i][1] * env.render_objects[0].tile_size + env.render_objects[0].offset), stroke=(0.2, 0.2, 0.2, 0.5), stroke_width=5))
+
+    return render_offers, render_texts
+
+
+def render_esc_room(combined_frames: [], render_objects: [], frames_per_state: int, info: [] = None, env=None):
     """
     Renders render objects of all agents and combined them vertically.
     :param combined_frames: frames until now
     :param render_objects: all render objects of all agents
     :param frames_per_state: amount of frames the state is rendered
+    :param info: information about trading
+    :param env: escape room environment
     :return: combined frames of current and past states
     """
 
+    # print and show trading information
+    render_offers, render_texts = trading_infos(info, env)
+
     # creates surface to draw on
     size = render_objects[0].display_size
-    surface = gizeh.Surface(size, size, (0.3, 0.3, 0.3))
+    surfaces = [gizeh.Surface(size, size, (0.3, 0.3, 0.3)), gizeh.Surface(size, size, (0.3, 0.3, 0.3))]
 
     # list of all individual agent frames
     current_frame = []
     for agent_id in range(len(render_objects)):
-        gizeh.Group(render_objects[agent_id].observation_squares_list).draw(surface)
-        current_frame.append(surface.get_npimage())
+        gizeh.Group(render_objects[agent_id].observation_squares_list).draw(surfaces[agent_id])
+
+        if info:
+            render_texts[agent_id][0].draw(surfaces[agent_id])
+            render_texts[agent_id][1].draw(surfaces[agent_id])
+
+            if info[0][(agent_id + 1) % 2][0] != 0.0 or info[0][(agent_id + 1) % 2][1] != 0.0:
+                render_offers[agent_id].draw(surfaces[agent_id])
+
+        current_frame.append(surfaces[agent_id].get_npimage())
 
     # combines all agent frames into one single frame
     # TODO combine frames for n agents rather than 2

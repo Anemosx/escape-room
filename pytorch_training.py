@@ -34,7 +34,8 @@ def train_trading_dqn(params, agents, env, trading, training_episodes: int, step
 
         if trading:
             offers = []
-            amount_trades = 0
+            amount_trades = np.zeros(env.nb_agents)
+            transfer = np.zeros(env.nb_agents)
             trade.trading_budget = np.full(env.nb_agents, params.trading_budget)
 
         # run one episode
@@ -53,17 +54,13 @@ def train_trading_dqn(params, agents, env, trading, training_episodes: int, step
 
             # execute trades and get new offers of agents
             if trading:
-                step_rewards, succ_trade = trade.pay(offers, actions, observations, step_rewards)
-                amount_trades += succ_trade
+                step_rewards, succ_trades, accumulated_transfer = trade.pay(offers, actions, observations, step_rewards, agents)
+                amount_trades += succ_trades
+                transfer += accumulated_transfer
 
                 for i in range(env.nb_agents):
                     actions[i] = [actions[i][2], actions[i][3]]
                 offers = actions
-
-                # agent without attitude can not make any offer
-                for i in range(len(actions)):
-                    if not env.attitude[i]:
-                        offers[i] = [0.0, 0.0]
 
             # save transitions of agents
             for agent_index in agent_indices:
@@ -94,11 +91,13 @@ def train_trading_dqn(params, agents, env, trading, training_episodes: int, step
             logger.log_metric('episode_steps', current_step)
             logger.log_metric('episode_return-0', episode_return[0])
             logger.log_metric('episode_return-1', episode_return[1])
-            logger.log_metric('episode_return_per_step', np.sum(episode_return) / current_step)
-            logger.log_metric('episode_return_per_step-0', episode_return[0] / current_step)
-            logger.log_metric('episode_return_per_step-1', episode_return[1] / current_step)
             if trading:
-                logger.log_metric('trades', amount_trades)
+                logger.log_metric('trades', sum(amount_trades))
+                logger.log_metric('trades-0', amount_trades[0])
+                logger.log_metric('trades-1', amount_trades[1])
+                logger.log_metric('transfer', sum(transfer))
+                logger.log_metric('transfer-0', transfer[0])
+                logger.log_metric('transfer-1', transfer[1])
 
         if episode > 0 and episode % 25 is 0:
             for i in range(len(agents)):

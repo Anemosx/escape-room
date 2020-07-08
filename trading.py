@@ -25,26 +25,30 @@ class Trade:
         self.valuation_net = [make_dqn_agent(params, observation_shape, 4),
                               make_dqn_agent(params, observation_shape, 4)]
 
-        for i in range(len(self.valuation_net)):
-            self.valuation_net[i].load_weights(os.path.join(os.getcwd(), 'valuation', 'attitude-{}.pth'.format(i)))
+        if not params.compensation_target_net and params.offline_compensation == 0:
+            for i in range(len(self.valuation_net)):
+                self.valuation_net[i].load_weights(os.path.join(os.getcwd(), 'valuation', 'attitude-{}.pth'.format(i)))
 
         self.normal_actions = [[0.0, 1.0], [0.0, -1.0], [-1.0, 0.0], [1.0, 0.0]]
         self.env = env
         self.gamma = params.gamma
         self.mark_up = params.mark_up
         self.trading_budget = np.full(env.nb_agents, params.trading_budget)
+        self.params = params
 
-    def pay(self, offers, actions, observations, step_rewards):
+    def pay(self, offers, actions, observations, step_rewards, agents):
         """
         Executes trade by comparing offers and actions and exchange reward accordingly.
         :param offers: offers of the agents
         :param actions: actions the agents performed
         :param observations: observations before the actions were performed
         :param step_rewards: current step rewards
-        :return: step_rewards: rewards after the compensations have been exchanged, succ_trade: number of successful trades
+        :param agents: agents for target valuation net
+        :return: step_rewards: rewards after the compensations have been exchanged, succ_trade: number of successful trades, accumulated_transfer: amount of reward transferred
         """
 
-        succ_trade = 0
+        succ_trades = np.zeros(len(agents))
+        accumulated_transfer = np.zeros(len(agents))
 
         # check if offer and action matches
         for i in range(len(offers)):
@@ -52,18 +56,38 @@ class Trade:
                 if self.trading_budget[i] > 0:
                     if offers[i][0] != 0.0 or offers[i][1] != 0.0:
 
-                        # calculate comparison from the valuation_net
+                        # calculate compensation
                         action_index = self.normal_actions.index(offers[i])
-                        valuation_q_vals = self.valuation_net[(i + 1) % 2].compute_q_values(observations[self.env.attitude[(i + 1) % 2]])[0]
-                        compensation = ((np.max(valuation_q_vals) - valuation_q_vals[action_index]) / self.gamma) * self.mark_up
+
+                        if self.params.compensation_target_net:
+                            valuation_q_vals = agents[(i + 1) % 2].compute_target_q_values(observations[(i + 1) % 2])[0]
+                        else:
+                            valuation_q_vals = self.valuation_net[self.env.attitude[(i + 1) % 2]].compute_q_values(observations[(i + 1) % 2])[0]
+
+                        if self.params.offline_compensation > 0:
+                            compensation = self.params.offline_compensation
+                        else:
+                            compensation = ((np.max(valuation_q_vals) - valuation_q_vals[action_index]) / self.gamma) * self.mark_up
 
                         # clear differences
                         step_rewards[i] -= compensation
                         step_rewards[(i + 1) % 2] += compensation
-                        self.trading_budget[i] -= 1
-                        succ_trade += 1
+                        self.trading_budget[i] -= compensation
+                        succ_trades[i] += 1
 
-        return step_rewards, succ_trade
+                        accumulated_transfer[i] += compensation
+
+        return step_rewards, succ_trades, accumulated_transfer
+
+    # def clear_after_episode(self, transfer, episode_return, agents):
+    #     step_rewards = np.zeros(len(agents))
+    #     for i in range(len(agents)):
+    #         if episode_return[i] > 0 and transfer[i] > 0:
+    #             if episode_return[i] - transfer[i] >= 0:
+    #                 step_rewards[i] = transfer[i]
+    #             else:
+    #                 step_rewards[i] = episode_return[i]
+    #     return step_rewards
 
 
 def main():
@@ -71,7 +95,7 @@ def main():
         params_json = json.load(f)
     params = DotMap(params_json)
 
-    exp_time = "20200618-20-35-41"
+    exp_time = "20200706-11-30-43"
 
     # use custom actions on trading
     if params.trading:
@@ -107,7 +131,8 @@ def main():
 
     # setup video frames
     combined_frames = []
-    combined_frames = drawing.render_esc_room(combined_frames, env.render_objects, 10)
+    combined_frames = drawing.render_esc_room(combined_frames, env.render_objects, 10,
+                                              [[[0, 0], [0, 0]], [0, 0], [0, 0]], env)
 
     # run one episode
     while not done:
@@ -125,16 +150,11 @@ def main():
 
         # execute trades and get new offers of agents
         if params.trading:
-            step_rewards, succ_trade = trade.pay(offers, actions, observations, step_rewards)
+            step_rewards, succ_trades, accumulated_transfer = trade.pay(offers, actions, observations, step_rewards, agents)
 
             for i in range(env.nb_agents):
                 actions[i] = [actions[i][2], actions[i][3]]
             offers = actions
-
-            # agent without attitude can not make any offer
-            for i in range(len(actions)):
-                if not env.attitude[i]:
-                    offers[i] = [0.0, 0.0]
 
         # episode ends on max steps or environment goal achievement
         if current_step == steps_per_episode or env.escape_room_done:
@@ -147,7 +167,8 @@ def main():
             episode_return[i] += step_rewards[i]
 
         # set new frame for the current state of the environment
-        combined_frames = drawing.render_esc_room(combined_frames, env.render_objects, 10)
+        if params.trading:
+            combined_frames = drawing.render_esc_room(combined_frames, env.render_objects, 10, [offers, succ_trades, accumulated_transfer], env)
 
     # renders video from sequence of frames
     clip = mpy.ImageSequenceClip(combined_frames, fps=30)

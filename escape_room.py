@@ -4,7 +4,7 @@ import drawing
 
 
 class EscapeRoom:
-    def __init__(self, render=False, nb_agents=2, field_width=5, field_height=5, actions=None, fixed_attitude=0, random_wall=0, random_exit=0, random_lever=0):
+    def __init__(self, render=False, nb_agents=2, field_width=5, field_height=5, actions=None, fixed_attitude=0, random_wall=0, random_exit=0, random_lever=0, stay_reward_no_att=0, stay_reward_att=-1, lever_reward=-1, exit_reward=10):
         """
         Initialize the Escape Room Environment.
         :param render: Render escape room visually: "True" for yes, "False" for no
@@ -12,6 +12,14 @@ class EscapeRoom:
         :param field_width: width of the escape room
         :param field_height: height of the escape room
         :param actions: set of actions [X, Y]; X to move horizontal, Y to move vertical
+        :param fixed_attitude: keep attitude fixed "True" or randomly "False"
+        :param random_wall: generate wall randomly
+        :param random_exit: generate exit randomly
+        :param random_lever: generate lever randomly
+        :param stay_reward_no_att: reward for staying for agent with no attitude
+        :param stay_reward_att: reward for staying for agent with attitude
+        :param lever_reward: reward for staying on lever
+        :param exit_reward: reward for reaching exit
         """
 
         if actions is None:
@@ -26,6 +34,10 @@ class EscapeRoom:
         self.random_wall = random_wall
         self.random_exit = random_exit
         self.random_lever = random_lever
+        self.stay_reward_no_att = stay_reward_no_att
+        self.stay_reward_att = stay_reward_att
+        self.lever_reward = lever_reward
+        self.exit_reward = exit_reward
 
         # render_objects: escape room visuals to render for humans
         self.render_objects = []
@@ -70,21 +82,21 @@ class EscapeRoom:
 
             # if agent with attitude reaches door, the episode ends
             if self.attitude[agent_id]:
-                step_rewards[agent_id] -= 1
+                step_rewards[agent_id] += self.stay_reward_att
                 if self.agents_pos[agent_id][0] == self.exit_pos[0] and self.agents_pos[agent_id][1] == self.exit_pos[1]:
-                    step_rewards[agent_id] += 10
+                    step_rewards[agent_id] += self.exit_reward
                     self.escape_room_done = True
 
             # agents without attitude get punished for standing on lever but open the door
             else:
                 if self.agents_pos[agent_id][0] == self.lever_pos[0] and self.agents_pos[agent_id][1] == self.lever_pos[1]:
-                    step_rewards[agent_id] -= 1
+                    step_rewards[agent_id] += self.lever_reward
                     self.world[self.exit_pos[0]][self.exit_pos[1]] = 0
                     if self.exit_pos in self.wall:
                         self.wall.remove([self.exit_pos[0], self.exit_pos[1]])
                     self.exit_open = True
                 else:
-                    step_rewards[agent_id] += 1
+                    step_rewards[agent_id] += self.stay_reward_no_att
 
         # update observations of agents
         self.observations = []
@@ -148,7 +160,7 @@ class EscapeRoom:
         if self.random_exit:
             self.exit_pos = self.wall[np.random.randint(len(self.wall))].copy()
         else:
-            self.exit_pos = self.wall[2].copy()
+            self.exit_pos = self.wall[int(len(self.wall)/2)].copy()
 
         # generates and ensures lever is not in front of the door
         if self.random_lever:
@@ -158,7 +170,7 @@ class EscapeRoom:
             while -1 in self.lever_pos or self.lever_pos in next_door or self.lever_pos in self.wall:
                 self.lever_pos = [np.random.randint(low=0, high=self.field_width), np.random.randint(low=0, high=self.field_height)]
         else:
-            self.lever_pos = [0, 2]
+            self.lever_pos = [int(self.field_width/2), int(self.field_height/2)]
 
         # generates unique agent positions
         self.agents_pos = np.full((self.nb_agents, 2), -1, dtype=int)
@@ -229,10 +241,10 @@ class EscapeRoom:
         # attitude
         observation[attitude_obs] += self.attitude[agent_id]
 
-        # agent with the index "agent_id"
+        # agent location with the index "agent_id"
         observation[self_obs][self.agents_pos[agent_id][0]][self.agents_pos[agent_id][1]] = 1
 
-        # all other agents
+        # all other agent locations
         for i in range(self.nb_agents):
             if i != agent_id:
                 observation[other_obs][self.agents_pos[i][0]][self.agents_pos[i][1]] = 1
@@ -246,6 +258,7 @@ def init_escape_room(params):
     :param params: parameters of the run
     :return: escape room environment
     """
+
     actions = None
 
     # use custom action set from parameters
@@ -254,7 +267,8 @@ def init_escape_room(params):
 
     # creates escape room environment
     esc_room = EscapeRoom(False, params.nb_agents, params.field_width, params.field_height, actions,
-                          params.fixed_attitude, params.random_wall, params.random_exit, params.random_lever)
+                          params.fixed_attitude, params.random_wall, params.random_exit, params.random_lever,
+                          params.stay_reward_no_att, params.stay_reward_att, params.lever_reward, params.exit_reward)
 
     return esc_room
 

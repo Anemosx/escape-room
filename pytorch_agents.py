@@ -6,27 +6,33 @@ from collections import namedtuple
 
 
 class SimpleDQN(torch.nn.Module):
-    def __init__(self, channels, height, width, outputs):
+    def __init__(self, channels, height, width, layers, outputs):
         super(SimpleDQN, self).__init__()
-        self.pre_head_dim = 16 # 32
-        self.fc_net = nn.Sequential(
-            nn.Linear(channels*height*width, 32), # 64
-            nn.ELU(),
-            nn.Linear(32, self.pre_head_dim), # 64
-            nn.ELU()
-        )
 
-        # self.pre_head_dim = 32  # 32
-        # self.fc_net = nn.Sequential(
-        #     nn.Linear(channels * height * width, 128),  # 64
-        #     nn.ELU(),
-        #     nn.Linear(128, 64),  # 64
-        #     nn.ELU(),
-        #     nn.Linear(64, self.pre_head_dim),  # 64
-        #     nn.ELU()
-        # )
+        if layers:
+            self.fc_net = nn.Sequential(
+                nn.Linear(channels * height * width, layers[0]),
+                nn.ELU(),
+                nn.Linear(layers[0], layers[1]),
+                nn.ELU(),
+                nn.Linear(layers[1], layers[2]),
+                nn.ELU()
+            )
 
-        self.action_head = nn.Linear(self.pre_head_dim, outputs)
+            self.action_head = nn.Linear(layers[2], outputs)
+
+        else:
+            self.pre_head_dim = 32
+            self.fc_net = nn.Sequential(
+                nn.Linear(channels * height * width, 128),
+                nn.ELU(),
+                nn.Linear(128, 64),
+                nn.ELU(),
+                nn.Linear(64, self.pre_head_dim),
+                nn.ELU()
+            )
+
+            self.action_head = nn.Linear(self.pre_head_dim, outputs)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -64,6 +70,7 @@ class DqnAgent:
                  observation_shape: [int],
                  number_of_actions: int,
                  gamma: float = 0.99,
+                 layers: [] = None,
                  epsilon_decay: float = 0.0001,
                  epsilon_min: float = 0.001,
                  mini_batch_size: int = 32,
@@ -86,10 +93,12 @@ class DqnAgent:
         self.policy_net = SimpleDQN(observation_shape[2],
                                     observation_shape[0],
                                     observation_shape[1],
+                                    layers,
                                     number_of_actions).to(self.device)
         self.target_net = SimpleDQN(observation_shape[2],
                                     observation_shape[0],
                                     observation_shape[1],
+                                    layers,
                                     number_of_actions).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
@@ -148,6 +157,11 @@ class DqnAgent:
             state = torch.tensor([state], device=self.device, dtype=torch.float32)
             return self.policy_net(state).numpy()
 
+    def compute_target_q_values(self, state):
+        with torch.no_grad():
+            state = torch.tensor([state], device=self.device, dtype=torch.float32)
+            return self.target_net(state).numpy()
+
     def save_weights(self, path):
         torch.save(self.policy_net.state_dict(), path)
 
@@ -163,6 +177,7 @@ def make_dqn_agent(params, observation_shape, nb_actions):
         observation_shape=observation_shape,
         number_of_actions=nb_actions,
         gamma=params.gamma,
+        layers=params.layers,
         epsilon_decay=params.epsilon_decay,
         epsilon_min=params.epsilon_min,
         mini_batch_size=params.mini_batch_size,
