@@ -79,6 +79,33 @@ class Trade:
 
         return step_rewards, succ_trades, accumulated_transfer
 
+    def trading_observations(self, observations, offers):
+        '''
+        Add offers to the observations.
+        :param observations: observations without the offers
+        :param offers: offers of the agents
+        :return: observations with included offer indicators
+        '''
+        trading_observations = []
+
+        # copy observation
+        for i in range(len(observations)):
+            tr_observation = np.zeros((len(observations[i])+self.env.nb_agents, self.env.field_width, self.env.field_height))
+            for i_obs in range(len(observations[i])):
+                tr_observation[i_obs] = observations[i][i_obs]
+
+            # add offer to the observations
+            if offers[i][0] != 0.0 or offers[i][1] != 0.0:
+                if self.env.collision_check(i, offers[((i + 1) % 2)]):
+                    offer_pos = [self.env.agents_pos[i][0] + offers[((i + 1) % 2)][0], self.env.agents_pos[i][1] + offers[((i + 1) % 2)][1]]
+                else:
+                    offer_pos = [self.env.agents_pos[i][0], self.env.agents_pos[i][1]]
+                tr_observation[len(observations[i])][int(offer_pos[0])][int(offer_pos[1])] = 1
+
+            trading_observations.append(tr_observation)
+
+        return trading_observations
+
     # def clear_after_episode(self, transfer, episode_return, agents):
     #     step_rewards = np.zeros(len(agents))
     #     for i in range(len(agents)):
@@ -126,7 +153,7 @@ def main():
     done = False
 
     if params.trading:
-        offers = []
+        offers = [[0, 0], [0, 0]]
         trade = Trade(env, params)
 
     # setup video frames
@@ -136,6 +163,8 @@ def main():
 
     # run one episode
     while not done:
+
+        trade.trading_observations(observations, offers)
 
         # agents choose action depending on policy
         actions = []

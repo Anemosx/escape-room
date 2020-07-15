@@ -59,6 +59,8 @@ def run_experiment(params, logger, log_dir):
     else:
         params.use_actions = 0
 
+    trading_obs = True
+
     # calculate epsilon decay according to the training episodes
     params.epsilon_decay = (params.epsilon_min / params.train_episodes) * 3
 
@@ -68,6 +70,10 @@ def run_experiment(params, logger, log_dir):
     # init agents
     agents = []
     observation_shape = list(gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0]), env.field_width, env.field_height)).shape)
+    if trading_obs:
+        observation_shape = list(
+            gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0])+env.nb_agents, env.field_width, env.field_height)).shape)
+
     for i in range(params.nb_agents):
         agent = make_dqn_agent(params, observation_shape, env.nb_actions)
         agents.append(agent)

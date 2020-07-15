@@ -20,6 +20,7 @@ def train_trading_dqn(params, agents, env, trading, training_episodes: int, step
 
     # creates trading object if trading enabled
     if trading:
+        trading_obs = True
         trade = Trade(env, params)
 
     # run episodes
@@ -33,7 +34,9 @@ def train_trading_dqn(params, agents, env, trading, training_episodes: int, step
         done = False
 
         if trading:
-            offers = []
+            offers = [[0, 0], [0, 0]]
+            if trading_obs:
+                observations = trade.trading_observations(observations, offers)
             amount_trades = np.zeros(env.nb_agents)
             transfer = np.zeros(env.nb_agents)
             trade.trading_budget = np.full(env.nb_agents, params.trading_budget)
@@ -61,6 +64,9 @@ def train_trading_dqn(params, agents, env, trading, training_episodes: int, step
                 for i in range(env.nb_agents):
                     actions[i] = [actions[i][2], actions[i][3]]
                 offers = actions
+
+            if trading_obs:
+                next_observations = trade.trading_observations(next_observations, offers)
 
             # save transitions of agents
             for agent_index in agent_indices:
