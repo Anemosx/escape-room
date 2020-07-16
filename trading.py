@@ -122,7 +122,7 @@ def main():
         params_json = json.load(f)
     params = DotMap(params_json)
 
-    exp_time = "20200706-11-30-43"
+    exp_time = "20200716-11-58-19"
 
     # use custom actions on trading
     if params.trading:
@@ -130,12 +130,17 @@ def main():
     else:
         params.use_actions = 0
 
+    trading_obs = True
+
     # init escape room environment
     env = escape_room.init_escape_room(params)
 
     # init agents and load weights
     agents = []
     observation_shape = list(gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0]), env.field_width, env.field_height)).shape)
+    if trading_obs and params.trading:
+        observation_shape = list(
+            gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0])+env.nb_agents, env.field_width, env.field_height)).shape)
     for i in range(params.nb_agents):
         agent = make_dqn_agent(params, observation_shape, env.nb_actions)
         agent.load_weights(os.path.join(os.getcwd(), 'experiments', '{}'.format(exp_time), "weights-{}.pth".format(i)))
@@ -155,6 +160,8 @@ def main():
     if params.trading:
         offers = [[0, 0], [0, 0]]
         trade = Trade(env, params)
+        if trading_obs:
+            observations = trade.trading_observations(observations, offers)
 
     # setup video frames
     combined_frames = []
@@ -163,8 +170,6 @@ def main():
 
     # run one episode
     while not done:
-
-        trade.trading_observations(observations, offers)
 
         # agents choose action depending on policy
         actions = []
@@ -184,6 +189,9 @@ def main():
             for i in range(env.nb_agents):
                 actions[i] = [actions[i][2], actions[i][3]]
             offers = actions
+
+            if trading_obs:
+                next_observations = trade.trading_observations(next_observations, offers)
 
         # episode ends on max steps or environment goal achievement
         if current_step == steps_per_episode or env.escape_room_done:

@@ -65,8 +65,8 @@ def train_trading_dqn(params, agents, env, trading, training_episodes: int, step
                     actions[i] = [actions[i][2], actions[i][3]]
                 offers = actions
 
-            if trading_obs:
-                next_observations = trade.trading_observations(next_observations, offers)
+                if trading_obs:
+                    next_observations = trade.trading_observations(next_observations, offers)
 
             # save transitions of agents
             for agent_index in agent_indices:

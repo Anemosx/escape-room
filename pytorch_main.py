@@ -70,7 +70,7 @@ def run_experiment(params, logger, log_dir):
     # init agents
     agents = []
     observation_shape = list(gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0]), env.field_width, env.field_height)).shape)
-    if trading_obs:
+    if trading_obs and params.trading:
         observation_shape = list(
             gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0])+env.nb_agents, env.field_width, env.field_height)).shape)
 
