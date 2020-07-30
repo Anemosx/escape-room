@@ -25,7 +25,7 @@ class Trade:
         self.valuation_net = [make_dqn_agent(params, observation_shape, 4),
                               make_dqn_agent(params, observation_shape, 4)]
 
-        if not params.compensation_target_net and params.offline_compensation == 0:
+        if not params.comp_target_net and params.comp_fixed == 0:
             for i in range(len(self.valuation_net)):
                 self.valuation_net[i].load_weights(os.path.join(os.getcwd(), 'valuation', 'attitude-{}.pth'.format(i)))
 
@@ -59,13 +59,20 @@ class Trade:
                         # calculate compensation
                         action_index = self.normal_actions.index(offers[i])
 
-                        if self.params.compensation_target_net:
+                        if self.params.comp_target_net:
                             valuation_q_vals = agents[(i + 1) % 2].compute_target_q_values(observations[(i + 1) % 2])[0]
+                        elif self.params.comp_policy_net:
+                            valuation_q_vals = agents[(i + 1) % 2].compute_q_values(observations[(i + 1) % 2])[0]
                         else:
-                            valuation_q_vals = self.valuation_net[self.env.attitude[(i + 1) % 2]].compute_q_values(observations[(i + 1) % 2])[0]
+                            if self.params.trading_observations:
+                                val_obs = observations[(i + 1) % 2].copy()
+                                val_obs = val_obs[:-2]
+                                valuation_q_vals = self.valuation_net[self.env.attitude[(i + 1) % 2]].compute_q_values(val_obs)[0]
+                            else:
+                                valuation_q_vals = self.valuation_net[self.env.attitude[(i + 1) % 2]].compute_q_values(observations[(i + 1) % 2])[0]
 
-                        if self.params.offline_compensation > 0:
-                            compensation = self.params.offline_compensation
+                        if self.params.comp_fixed > 0:
+                            compensation = self.params.comp_fixed
                         else:
                             compensation = ((np.max(valuation_q_vals) - valuation_q_vals[action_index]) / self.gamma) * self.mark_up
 
@@ -122,7 +129,7 @@ def main():
         params_json = json.load(f)
     params = DotMap(params_json)
 
-    exp_time = "20200716-11-58-19"
+    exp_time = "20200718-10-28-50"
 
     # use custom actions on trading
     if params.trading:
@@ -130,20 +137,17 @@ def main():
     else:
         params.use_actions = 0
 
-    trading_obs = True
-
     # init escape room environment
     env = escape_room.init_escape_room(params)
 
     # init agents and load weights
     agents = []
     observation_shape = list(gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0]), env.field_width, env.field_height)).shape)
-    if trading_obs and params.trading:
-        observation_shape = list(
-            gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0])+env.nb_agents, env.field_width, env.field_height)).shape)
+    if params.trading_observations and params.trading:
+        observation_shape = list(gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0])+env.nb_agents, env.field_width, env.field_height)).shape)
     for i in range(params.nb_agents):
         agent = make_dqn_agent(params, observation_shape, env.nb_actions)
-        agent.load_weights(os.path.join(os.getcwd(), 'experiments', '{}'.format(exp_time), "weights-{}.pth".format(i)))
+        agent.load_weights(os.path.join(os.getcwd(), 'experiments', '{}'.format(exp_time), 'run 5', "weights-{}.pth".format(i)))
         agent.epsilon = 0.01
         agents.append(agent)
 
@@ -160,7 +164,7 @@ def main():
     if params.trading:
         offers = [[0, 0], [0, 0]]
         trade = Trade(env, params)
-        if trading_obs:
+        if params.trading_observations:
             observations = trade.trading_observations(observations, offers)
 
     # setup video frames
@@ -190,7 +194,7 @@ def main():
                 actions[i] = [actions[i][2], actions[i][3]]
             offers = actions
 
-            if trading_obs:
+            if params.trading_observations:
                 next_observations = trade.trading_observations(next_observations, offers)
 
         # episode ends on max steps or environment goal achievement

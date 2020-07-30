@@ -4,27 +4,27 @@ import numpy as np
 from trading import Trade
 
 
-def train_trading_dqn(params, agents, env, trading, training_episodes: int, steps_per_episode: int, logger):
+def train_trading_dqn(params, agents, env, logger):
     """
     Trains agents in the environment
     :param params: parameters of the run
     :param agents: agents in the environment
     :param env: escape room environment
-    :param trading: 0 if trading enabled, 1 if disabled
-    :param training_episodes: amount of training episodes
-    :param steps_per_episode: max amount of steps in one episode
     :param logger: logger object (neptune)
     """
 
     print("{} | training started".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
+    steps_per_episode = params.nb_max_episode_steps
+    trading = params.trading
+
     # creates trading object if trading enabled
     if trading:
-        trading_obs = True
+        trading_obs = params.trading_observations
         trade = Trade(env, params)
 
     # run episodes
-    for episode in range(0, training_episodes):
+    for episode in range(0, params.train_episodes):
         # resets variables to start new episode
         env.reset()
         observations = env.observations

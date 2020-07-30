@@ -1,6 +1,6 @@
 {
   "actions": [[0.0, 1.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [-1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, -1.0], [0.0, 1.0, -1.0, 0.0], [0.0, 1.0, 1.0, 0.0], [0.0, -1.0, 0.0, 1.0], [0.0, -1.0, 0.0, -1.0], [0.0, -1.0, -1.0, 0.0], [0.0, -1.0, 1.0, 0.0], [-1.0, 0.0, 0.0, 1.0], [-1.0, 0.0, 0.0, -1.0], [-1.0, 0.0, -1.0, 0.0], [-1.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, -1.0], [1.0, 0.0, -1.0, 0.0], [1.0, 0.0, 1.0, 0.0]],
-  "use_actions": 0,
+  "use_actions": 1,
   "nb_agents": 2,
   "logging": 1,
   "gamma": 0.95,
@@ -16,7 +16,7 @@
   "fixed_attitude": 1,
   "field_width": 5,
   "field_height": 5,
-  "random_wall": 1,
+  "random_wall": 0,
   "random_exit": 0,
   "random_lever": 0,
   "stay_reward_no_att": 0,
@@ -24,8 +24,11 @@
   "lever_reward": -1,
   "exit_reward": 10,
   "trading": 1,
-  "compensation_target_net": 1,
-  "offline_compensation": 0,
+  "comp_target_net": 0,
+  "comp_policy_net": 0,
+  "comp_fixed": 2,
   "trading_budget": 1000,
-  "mark_up": 1.00
+  "trading_observations": 1,
+  "mark_up": 1.10,
+  "runs": 10
 }

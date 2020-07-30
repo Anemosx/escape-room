@@ -32,17 +32,22 @@ def main():
     with open(os.path.join(log_dir, 'params.txt'), 'w') as outfile:
         json.dump(params_json, outfile)
 
-    # logging in neptune to view progress and run experiment
-    if params.logging:
-        neptune.init('arno/escape-room',
-                     api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiMzA3NmZlNmEtZWFhZC00MDY1LTk4MjEtNDk3MzBlODQ2Mzc3In0=')
-        logger = neptune
-        with neptune.create_experiment(name='esc_room_trading', params=params_json):
-            neptune.append_tag('time-{}'.format(exp_time))
-            run_experiment(params, logger, log_dir)
-    else:
-        logger = None
-        run_experiment(params, logger, log_dir)
+    for i_time in range(params.runs):
+        log_dir_i = os.path.join(log_dir, 'run {}'.format(i_time))
+        if not os.path.exists(log_dir_i):
+            os.makedirs(log_dir_i)
+
+        # logging in neptune to view progress and run experiment
+        if params.logging:
+            neptune.init('arno/escape-room',
+                         api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiMzA3NmZlNmEtZWFhZC00MDY1LTk4MjEtNDk3MzBlODQ2Mzc3In0=')
+            logger = neptune
+            with neptune.create_experiment(name='esc_room_trading', params=params_json):
+                neptune.append_tag('time-{}'.format(exp_time))
+                run_experiment(params, logger, log_dir_i)
+        else:
+            logger = None
+            run_experiment(params, logger, log_dir_i)
 
 
 def run_experiment(params, logger, log_dir):
@@ -59,27 +64,27 @@ def run_experiment(params, logger, log_dir):
     else:
         params.use_actions = 0
 
-    trading_obs = True
-
     # calculate epsilon decay according to the training episodes
     params.epsilon_decay = (params.epsilon_min / params.train_episodes) * 3
+    # params.epsilon_decay = (params.epsilon_min / params.train_episodes) * 4
 
     # init escape room environment
     env = escape_room.init_escape_room(params)
 
+    extra_obs = 0
+    if params.trading_observations and params.trading:
+        extra_obs = env.nb_agents
+
     # init agents
     agents = []
-    observation_shape = list(gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0]), env.field_width, env.field_height)).shape)
-    if trading_obs and params.trading:
-        observation_shape = list(
-            gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0])+env.nb_agents, env.field_width, env.field_height)).shape)
+    observation_shape = list(gym.spaces.Box(0.0, 1.0, shape=(len(env.observations[0]) + extra_obs, env.field_width, env.field_height)).shape)
 
     for i in range(params.nb_agents):
         agent = make_dqn_agent(params, observation_shape, env.nb_actions)
         agents.append(agent)
 
     # train agents
-    pytorch_training.train_trading_dqn(params, agents, env, params.trading, params.train_episodes, params.nb_max_episode_steps, logger)
+    pytorch_training.train_trading_dqn(params, agents, env, logger)
 
     # save agents weights
     for i in range(len(agents)):

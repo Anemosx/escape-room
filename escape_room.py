@@ -174,9 +174,15 @@ class EscapeRoom:
 
         # generates unique agent positions
         self.agents_pos = np.full((self.nb_agents, 2), -1, dtype=int)
+        # for i in range(len(self.agents_pos)):
+        #     while -1 in self.agents_pos[i]:
+        #         new_pos = [np.random.randint(low=0, high=self.field_width), np.random.randint(low=0, high=self.field_height)]
+        #         if new_pos not in self.agents_pos and new_pos not in self.wall and not (new_pos[0] == self.lever_pos[0] and new_pos[1] == self.lever_pos[1]):
+        #             self.agents_pos[i] = new_pos
+
         for i in range(len(self.agents_pos)):
             while -1 in self.agents_pos[i]:
-                new_pos = [np.random.randint(low=0, high=self.field_width), np.random.randint(low=0, high=self.field_height)]
+                new_pos = [np.random.randint(low=1, high=self.field_width-1), np.random.randint(low=1, high=self.field_height-1)]
                 if new_pos not in self.agents_pos and new_pos not in self.wall and not (new_pos[0] == self.lever_pos[0] and new_pos[1] == self.lever_pos[1]):
                     self.agents_pos[i] = new_pos
 
