@@ -2,6 +2,7 @@
 
 ![escape_room_trade](https://github.com/Anemosx/escape-room/blob/master/esc_action_trade.png?raw=true)
 
+## Abstract
 Multi agent systems have always successfully provided a platform
 to solve problems. Using reinforcement learning, agents can learn to
 understand their environment and thus deal with complex problems
@@ -18,4 +19,8 @@ and to take a more in-depth analysis of the trading amount. As a
 result, we should gain more insight into the cooperative behavior
 of agents and possibly improve the trading mechanism.
 
+[Presentation](https://github.com/Anemosx/master-isaac/blob/master/esc_room_pres.pdf)
+
 [Escape Room PDF](https://github.com/Anemosx/escape-room/blob/master/escape_room_2020.pdf)
+
+![escape_room_plot](https://github.com/Anemosx/escape-room/blob/master/esc_action_trade_plot.png?raw=true)
